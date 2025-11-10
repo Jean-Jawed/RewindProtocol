@@ -398,7 +398,7 @@
 
 /* Responsive Game */
 @media (max-width: 768px) {
-    /* 1. Remplacement des valeurs HUD existantes par une réduction de ~50% de la version DESKTOP */
+    /* HUD ITEMS: Réduction de moitié */
     .hud {
         top: 10px;
         left: 10px;
@@ -406,38 +406,36 @@
     }
     
     .hud-item {
-        /* Version desktop: padding: 10px 20px; font-size: 1.1rem; */
-        /* Réduction de ~50%: padding: 5px 10px; font-size: 0.55rem; */
+        /* Réduction de ~50% de la version DESKTOP */
         padding: 5px 10px;
-        font-size: 0.55rem; /* ~0.6rem est plus lisible si 0.55rem est trop petit */
+        font-size: 0.55rem; 
     }
 
-    /* Optionnel: réduire l'espacement entre les éléments HUD */
     .hud-left, .hud-right {
-        gap: 5px; /* Réduction de moitié de 10px à 5px */
+        gap: 5px; 
     }
 
-    /* 2. Joystick: Réduction de 50% des unités vw/vh */
+    /* JOSTICK: Réduction de 50% des unités vw/vh ET des limites minimales */
     .joystick {
-        /* Version desktop: width: 15vw; height: 15vw; left: 5vw; bottom: 5vh; */
-        /* Réduction de 50%: width: 7.5vw; height: 7.5vw; left: 2.5vw; bottom: 2.5vh; */
         left: 2.5vw;
         bottom: 2.5vh;
         width: 7.5vw;
         height: 7.5vw;
-        /* Les min/max width/height ne sont pas modifiés pour garantir une taille minimale/maximale */
+        /* Correction: Réduction de moitié des valeurs minimales */
+        min-width: 50px; 
+        min-height: 50px;
     }
     
-    /* 3. Bouton Fire: Réduction de 50% des unités vw/vh et de la taille de police */
+    /* BOUTON FIRE: Réduction de 50% des unités vw/vh ET des limites minimales/police */
     .fire-btn {
-        /* Version desktop: width: 12vw; height: 12vw; right: 5vw; bottom: 5vh; font-size: 2rem; */
-        /* Réduction de 50%: width: 6vw; height: 6vw; right: 2.5vw; bottom: 2.5vh; font-size: 1rem; */
         right: 2.5vw;
         bottom: 2.5vh;
         width: 6vw;
         height: 6vw;
         font-size: 1rem;
-        /* Les min/max width/height ne sont pas modifiés pour garantir une taille minimale/maximale */
+        /* Correction: Réduction de moitié des valeurs minimales */
+        min-width: 40px; 
+        min-height: 40px;
     }
     
     /* Les autres éléments (Game Over/Victory/Stats) sont conservés/modifiés comme avant, car ce n'étaient pas des "contrôleurs" */

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rewind Protocol - Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="game.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='12' width='48' height='36' fill='%2300ffff' stroke='%23ff00ff' stroke-width='2'/%3E%3Crect x='14' y='18' width='36' height='24' fill='%23000'/%3E%3Cline x1='32' y1='48' x2='32' y2='52' stroke='%2300ffff' stroke-width='2'/%3E%3Cline x1='20' y1='52' x2='44' y2='52' stroke='%2300ffff' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+    <div class="scanlines"></div>
+    
+    <!-- Tutorial Message -->
+    <div id="tutorial" class="tutorial">
+        Restez immobile devant les TVs pour les éteindre
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hud">
+        <div class="hud-left">
+            <div class="hud-item">NIVEAU: <span id="level-display">1</span></div>
+            <div class="hud-item">SCORE: <span id="score-display">0</span></div>
+        </div>
+        <div class="hud-right">
+            <div class="hud-item">TVS: <span id="tvs-display">0/7</span></div>
+            <div class="hud-item">VIES: <span id="lives-display">♥♥♥♥♥</span></div>
+        </div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls" class="mobile-controls hidden">
+        <div id="joystick" class="joystick">
+            <div class="joystick-base"></div>
+            <div class="joystick-stick"></div>
+        </div>
+        <button id="fire-btn" class="fire-btn">🔥</button>
+        <button id="pause-btn-mobile" class="pause-btn-mobile">⏸</button>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" class="pause-menu hidden">
+        <div class="pause-content">
+            <h2>PAUSE</h2>
+            <button class="menu-btn" id="resume-btn">▶ REPRENDRE</button>
+            <button class="menu-btn" id="restart-btn">🔄 RESTART</button>
+            <button class="menu-btn" id="settings-game-btn">⚙ PARAMÈTRES</button>
+            <button class="menu-btn" id="menu-btn">🏠 MENU PRINCIPAL</button>
+        </div>
+    </div>
+
+    <!-- Level Complete -->
+    <div id="level-complete" class="level-complete hidden">
+        <div class="complete-content">
+            <h2 class="glitch" data-text="NIVEAU TERMINÉ">NIVEAU TERMINÉ</h2>
+            <div class="stats">
+                <p>ROBOTS ÉLIMINÉS: <span id="robots-killed">0</span></p>
+                <p>TVS ÉTEINTES: <span id="tvs-destroyed">7</span></p>
+                <p>SCORE: <span id="level-score">0</span></p>
+            </div>
+            <button class="menu-btn" id="next-level-btn">NIVEAU SUIVANT ▶</button>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" class="game-over hidden">
+        <div class="game-over-content glitch-effect">
+            <h2 class="glitch" data-text="GAME OVER">GAME OVER</h2>
+            <p class="loop-message" id="loop-message">La boucle continue...</p>
+            <div class="stats">
+                <p>SCORE FINAL: <span id="final-score">0</span></p>
+                <p>NIVEAU ATTEINT: <span id="final-level">1</span></p>
+            </div>
+            <input type="text" id="player-name" placeholder="Votre nom (optionnel)" maxlength="20">
+            <button class="menu-btn" id="share-score-btn">📤 PARTAGER SCORE</button>
+            <button class="menu-btn" id="restart-game-btn">🔄 REJOUER</button>
+            <button class="menu-btn" id="menu-game-over-btn">🏠 MENU PRINCIPAL</button>
+        </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory" class="victory hidden">
+        <div class="victory-content">
+            <h2 class="glitch" data-text="VICTOIRE">VICTOIRE</h2>
+            <p class="victory-message">Vous avez brisé la boucle !</p>
+            <div class="stats">
+                <p>SCORE TOTAL: <span id="victory-score">0</span></p>
+            </div>
+            <input type="text" id="player-name-victory" placeholder="Votre nom (optionnel)" maxlength="20">
+            <button class="menu-btn" id="share-victory-btn">📤 PARTAGER SCORE</button>
+            <button class="menu-btn" id="menu-victory-btn">🏠 MENU PRINCIPAL</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal in Game -->
+    <div id="settings-game-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙ SETTINGS</h2>
+            
+            <div class="setting-item">
+                <label>🎵 VOLUME AUDIO</label>
+                <input type="range" id="volume-slider-game" min="0" max="100" value="50">
+                <span id="volume-value-game">50%</span>
+            </div>
+            
+            <div class="setting-item">
+                <label>🔊 EFFETS SONORES</label>
+                <input type="range" id="sfx-slider-game" min="0" max="100" value="70">
+                <span id="sfx-value-game">70%</span>
+            </div>
+            
+            <div class="setting-item">
+                <label>🎮 CONTRÔLES</label>
+                <select id="controls-select-game">
+                    <option value="qsdz">QSDZ (AZERTY)</option>
+                    <option value="zqsd">ZQSD (AZERTY Alt)</option>
+                    <option value="wasd">WASD (QWERTY)</option>
+                    <option value="arrows">FLÈCHES</option>
+                </select>
+            </div>
+            
+            <button class="menu-btn" id="close-settings-game">RETOUR</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Orientation Warning -->
+    <div id="orientation-warning" class="orientation-warning hidden">
+        <p>📱 Tournez votre appareil en mode paysage</p>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

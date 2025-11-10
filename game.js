@@ -3,19 +3,21 @@ const CONFIG = {
     CANVAS_WIDTH: 1280,
     CANVAS_HEIGHT: 720,
     TILE_SIZE: 40,
-    PLAYER_SIZE: 45,
-    ROBOT_SIZE: 42,
+    PLAYER_SIZE: 55,
+    ROBOT_SIZE: 68,
     TV_SIZE: 35,
     BULLET_SIZE: 8,
     PLAYER_SPEED: 200,
     BULLET_SPEED: 400,
     MAX_LIVES: 5,
     TVS_PER_LEVEL: 7,
-    INITIAL_ROBOTS: 25, // MODIFIÉ: 25 robots au spawn initial
+    INITIAL_ROBOTS: 25,
     ROBOT_SPEEDS: [80, 120, 160],
     ROBOT_DETECTION_RANGE: 250,
     PARTICLE_COUNT: 15,
-    CAMERA_SPEED: 400
+    CAMERA_SPEED: 400,
+    CAMERA_LERP_SPEED: 0.15,
+    TV_DISABLE_TIME: 3000 // AJOUTÉ: Temps en ms pour éteindre une TV
 };
 
 // Utility Functions
@@ -68,7 +70,10 @@ class ImageLoader {
             { key: 'explosion_2', src: 'assets/explosion_2.png' },
             { key: 'explosion_3', src: 'assets/explosion_3.png' },
             { key: 'explosion_4', src: 'assets/explosion_4.png' },
-            { key: 'explosion_5', src: 'assets/explosion_5.png' }
+            { key: 'explosion_5', src: 'assets/explosion_5.png' },
+            { key: 'tv_screen_1', src: 'assets/TV1.png' },
+            { key: 'tv_screen_2', src: 'assets/TV2.png' },
+            { key: 'tv_screen_3', src: 'assets/TV3.png' }
         ];
 
         this.total = imagesToLoad.length;
@@ -292,7 +297,6 @@ class Maze {
             this.grid[y + 1][x + 1] = 0;
         }
 
-        // AJOUT: Étendre le sol en bas (Solution 3)
         for (let x = 0; x < this.width; x++) {
             if (this.height >= 2) this.grid[this.height - 2][x] = 0;
             if (this.height >= 1) this.grid[this.height - 1][x] = 0;
@@ -380,20 +384,22 @@ class Bullet {
     }
 }
 
-// TV Class - MODIFIÉ: Extinction sans condition de mouvement
+// TV Class - MODIFIÉ: Ajout de imageLoader et level
 class TV {
-    constructor(x, y) {
+    constructor(x, y, imageLoader, level) {
         this.pos = new Vector2D(x, y);
         this.size = CONFIG.TV_SIZE;
         this.active = true;
         this.disableProgress = 0;
+        this.imageLoader = imageLoader;
+        this.level = level;
     }
 
     update(dt, playerPos, playerMoving) {
         if (!this.active) return false;
 
         const dist = this.pos.distance(playerPos);
-        // MODIFIÉ: Retirer la condition !playerMoving
+        
         if (dist < 50) {
             this.disableProgress += dt;
             if (this.disableProgress >= CONFIG.TV_DISABLE_TIME / 1000) {
@@ -414,12 +420,35 @@ class TV {
             ctx.fillStyle = '#333';
             ctx.fillRect(screenX - this.size / 2, screenY - this.size / 2, this.size, this.size * 0.8);
             
-            ctx.fillStyle = '#00ff00';
-            ctx.fillRect(screenX - this.size / 2 + 3, screenY - this.size / 2 + 3, this.size - 6, this.size * 0.6);
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ff00';
-            ctx.fillRect(screenX - this.size / 2 + 3, screenY - this.size / 2 + 3, this.size - 6, this.size * 0.6);
-            ctx.shadowBlur = 0;
+            // MODIFIÉ: Remplacer le rectangle vert par l'image
+            const img = this.imageLoader.get(`tv_screen_${this.level}`);
+            if (img) {
+                ctx.drawImage(img, 
+                    screenX - this.size / 2 + 3, 
+                    screenY - this.size / 2 + 3, 
+                    this.size - 6, 
+                    this.size * 0.6
+                );
+                
+                // Effet lumineux
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ff00';
+                ctx.drawImage(img, 
+                    screenX - this.size / 2 + 3, 
+                    screenY - this.size / 2 + 3, 
+                    this.size - 6, 
+                    this.size * 0.6
+                );
+                ctx.shadowBlur = 0;
+            } else {
+                // Fallback si l'image ne charge pas
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(screenX - this.size / 2 + 3, screenY - this.size / 2 + 3, this.size - 6, this.size * 0.6);
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00ff00';
+                ctx.fillRect(screenX - this.size / 2 + 3, screenY - this.size / 2 + 3, this.size - 6, this.size * 0.6);
+                ctx.shadowBlur = 0;
+            }
 
             ctx.strokeStyle = '#666';
             ctx.lineWidth = 2;
@@ -795,7 +824,7 @@ class GameAudioManager {
     }
 }
 
-// Input Manager - MODIFIÉ: Pan caméra tactile + pinch zoom
+// Input Manager
 class InputManager {
     constructor(controlScheme) {
         this.keys = {};
@@ -815,7 +844,6 @@ class InputManager {
             right: false
         };
 
-        // NOUVEAU: Pan tactile et pinch zoom
         this.touchPanning = false;
         this.lastTouchPos = { x: 0, y: 0 };
         this.touchPanDelta = { x: 0, y: 0 };
@@ -886,7 +914,6 @@ class InputManager {
         const fireBtn = document.getElementById('fire-btn');
         const canvas = document.getElementById('game-canvas');
 
-        // Joystick controls
         const handleJoystickStart = (e) => {
             e.preventDefault();
             this.joystickActive = true;
@@ -930,7 +957,6 @@ class InputManager {
         joystick.addEventListener('touchmove', handleJoystickMove);
         joystick.addEventListener('touchend', handleJoystickEnd);
 
-        // Fire button
         fireBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             this.fireActive = true;
@@ -941,10 +967,8 @@ class InputManager {
             this.fireActive = false;
         });
 
-        // NOUVEAU: Pan caméra tactile sur canvas
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
-                // Vérifier si le touch n'est pas dans les zones de contrôle
                 const touch = e.touches[0];
                 const joystickRect = joystick.getBoundingClientRect();
                 const fireRect = fireBtn.getBoundingClientRect();
@@ -959,7 +983,6 @@ class InputManager {
                     this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
                 }
             } else if (e.touches.length === 2) {
-                // Pinch zoom
                 this.pinching = true;
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -972,10 +995,12 @@ class InputManager {
             
             if (this.touchPanning && e.touches.length === 1) {
                 const touch = e.touches[0];
+                
                 this.touchPanDelta = {
-                    x: this.lastTouchPos.x - touch.clientX,
-                    y: this.lastTouchPos.y - touch.clientY
+                    x: -(touch.clientX - this.lastTouchPos.x),
+                    y: -(touch.clientY - this.lastTouchPos.y)
                 };
+                
                 this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
             } else if (this.pinching && e.touches.length === 2) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1159,7 +1184,7 @@ class UIManager {
     }
 }
 
-// Game Class - MODIFIÉ: Spawn 25 robots simultanés, caméra corrigée
+// Game Class - CORRIGÉ: maxCameraY augmenté pour permettre de voir tout le bas
 class Game {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -1271,9 +1296,10 @@ class Game {
         this.gameStartTimer = 0;
         this.initialSpawnDone = false;
         
+        // MODIFIÉ: Passer imageLoader et level aux TVs
         for (let i = 0; i < CONFIG.TVS_PER_LEVEL; i++) {
             const pos = this.maze.getRandomFloorPosition();
-            this.tvs.push(new TV(pos.x, pos.y));
+            this.tvs.push(new TV(pos.x, pos.y, this.imageLoader, this.level));
         }
         
         this.ui.updateHUD(this.level, this.player.lives, this.getActiveTVs(), CONFIG.TVS_PER_LEVEL);
@@ -1399,7 +1425,6 @@ class Game {
         });
     }
 
-    // MODIFIÉ: Spawn 25 robots simultanément
     spawnInitialWave() {
         if (this.initialSpawnDone) return;
         
@@ -1407,16 +1432,14 @@ class Game {
         this.audio.playSound('wave');
         const speed = CONFIG.ROBOT_SPEEDS[this.level - 1];
         
-        // Distribution égale des 4 types sur 25 robots
         const robotTypes = [];
         for (let type = 1; type <= 4; type++) {
             for (let i = 0; i < 6; i++) {
                 robotTypes.push(type);
             }
         }
-        robotTypes.push(Math.floor(Math.random() * 4) + 1); // 25ème robot type aléatoire
+        robotTypes.push(Math.floor(Math.random() * 4) + 1);
         
-        // Spawn tous les robots simultanément
         for (let i = 0; i < CONFIG.INITIAL_ROBOTS; i++) {
             const pos = this.maze.getRandomFloorPosition();
             const robot = new Robot(pos.x, pos.y, speed, this.imageLoader);
@@ -1434,7 +1457,6 @@ class Game {
 
         const input = this.input.getInput();
         
-        // MODIFIÉ: Spawn à 2s sans condition hasMoved
         this.gameStartTimer += dt;
         if (this.gameStartTimer >= 2 && !this.initialSpawnDone) {
             this.spawnInitialWave();
@@ -1442,7 +1464,6 @@ class Game {
         
         this.player.update(dt, input, this.maze, this.camera);
         
-        // MODIFIÉ: Gestion caméra corrigée avec marge bottom augmentée
         const targetCameraX = this.player.pos.x - CONFIG.CANVAS_WIDTH / 2;
         const targetCameraY = this.player.pos.y - CONFIG.CANVAS_HEIGHT / 2;
         
@@ -1452,35 +1473,45 @@ class Game {
         if (input.cameraKeys.up) this.camera.y -= CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.down) this.camera.y += CONFIG.CAMERA_SPEED * dt;
 
-        // NOUVEAU: Pan tactile mobile
+        // Pan tactile mobile (avec delta inversé)
         if (isMobile && input.touchPanDelta) {
             this.camera.x += input.touchPanDelta.x;
             this.camera.y += input.touchPanDelta.y;
         }
 
-        // CORRIGÉ: Calcul maxCamera avec (height - 2) pour tenir compte de la génération
-        const effectiveHeight = (this.maze.height - 2) * this.maze.tileSize;
+        // CORRIGÉ: maxCameraY augmenté de 300 pixels pour permettre de voir tout le bas
         const maxCameraX = Math.max(0, this.maze.width * this.maze.tileSize - CONFIG.CANVAS_WIDTH);
-        const maxCameraY = Math.max(0, effectiveHeight - CONFIG.CANVAS_HEIGHT);
+        const maxCameraY = Math.max(0, this.maze.height * this.maze.tileSize - CONFIG.CANVAS_HEIGHT + 300);
 
-        // Forcer la caméra à suivre le joueur s'il sort de l'écran
+        // Système de suivi automatique avec lerp smooth
         const playerScreenX = this.player.pos.x - this.camera.x;
         const playerScreenY = this.player.pos.y - this.camera.y;
 
         const margin = 100;
-        const marginBottom = 250; // AUGMENTÉ pour le bas
+        const marginBottom = 100;
+
+        let shouldFollowX = false;
+        let shouldFollowY = false;
 
         if (playerScreenX < margin) {
-            this.camera.x = this.player.pos.x - margin;
+            shouldFollowX = true;
         }
         if (playerScreenX > CONFIG.CANVAS_WIDTH - margin) {
-            this.camera.x = this.player.pos.x - CONFIG.CANVAS_WIDTH + margin;
+            shouldFollowX = true;
         }
         if (playerScreenY < margin) {
-            this.camera.y = this.player.pos.y - margin;
+            shouldFollowY = true;
         }
         if (playerScreenY > CONFIG.CANVAS_HEIGHT - marginBottom) {
-            this.camera.y = this.player.pos.y - CONFIG.CANVAS_HEIGHT + marginBottom;
+            shouldFollowY = true;
+        }
+
+        // Appliquer lerp uniquement si nécessaire
+        if (shouldFollowX) {
+            this.camera.x += (targetCameraX - this.camera.x) * CONFIG.CAMERA_LERP_SPEED;
+        }
+        if (shouldFollowY) {
+            this.camera.y += (targetCameraY - this.camera.y) * CONFIG.CAMERA_LERP_SPEED;
         }
 
         // Appliquer les limites finales

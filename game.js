@@ -11,9 +11,7 @@ const CONFIG = {
     BULLET_SPEED: 400,
     MAX_LIVES: 5,
     TVS_PER_LEVEL: 7,
-    ROBOTS_PER_WAVE: 6,
-    WAVES_PER_LEVEL: 5,
-    TV_DISABLE_TIME: 500,
+    INITIAL_ROBOTS: 25, // MODIFIÉ: 25 robots au spawn initial
     ROBOT_SPEEDS: [80, 120, 160],
     ROBOT_DETECTION_RANGE: 250,
     PARTICLE_COUNT: 15,
@@ -293,6 +291,12 @@ class Maze {
             this.grid[y + 1][x] = 0;
             this.grid[y + 1][x + 1] = 0;
         }
+
+        // AJOUT: Étendre le sol en bas (Solution 3)
+        for (let x = 0; x < this.width; x++) {
+            if (this.height >= 2) this.grid[this.height - 2][x] = 0;
+            if (this.height >= 1) this.grid[this.height - 1][x] = 0;
+        }
     }
 
     isWall(x, y) {
@@ -376,7 +380,7 @@ class Bullet {
     }
 }
 
-// TV Class
+// TV Class - MODIFIÉ: Extinction sans condition de mouvement
 class TV {
     constructor(x, y) {
         this.pos = new Vector2D(x, y);
@@ -386,10 +390,11 @@ class TV {
     }
 
     update(dt, playerPos, playerMoving) {
-        if (!this.active) return;
+        if (!this.active) return false;
 
         const dist = this.pos.distance(playerPos);
-        if (dist < 50 && !playerMoving) {
+        // MODIFIÉ: Retirer la condition !playerMoving
+        if (dist < 50) {
             this.disableProgress += dt;
             if (this.disableProgress >= CONFIG.TV_DISABLE_TIME / 1000) {
                 this.active = false;
@@ -582,18 +587,14 @@ class Player {
             this.pos.y = newPos.y;
         }
 
-        // CORRIGÉ: Calcul de l'angle en prenant en compte la position de la caméra ET du joueur
         if (input.mousePos && !isMobile) {
-            // Position de la souris dans le monde (en ajoutant la position de la caméra)
             const worldMouseX = input.mousePos.x + camera.x;
             const worldMouseY = input.mousePos.y + camera.y;
             
-            // Calculer l'angle entre le joueur et la souris
             const dx = worldMouseX - this.pos.x;
             const dy = worldMouseY - this.pos.y;
             this.angle = Math.atan2(dy, dx);
         } else if (isMobile) {
-            // Sur mobile, l'angle est basé sur la direction du joystick
             if (input.joyAngle !== undefined) {
                 this.angle = input.joyAngle;
             }
@@ -794,13 +795,13 @@ class GameAudioManager {
     }
 }
 
-// Input Manager
+// Input Manager - MODIFIÉ: Pan caméra tactile + pinch zoom
 class InputManager {
     constructor(controlScheme) {
         this.keys = {};
         this.mousePos = null;
         this.mouseDown = false;
-        this.spaceDown = false; // NOUVEAU: Touche espace
+        this.spaceDown = false;
         this.controlScheme = controlScheme;
         this.controlKeys = getControlKeys(controlScheme);
         this.joystickActive = false;
@@ -813,6 +814,14 @@ class InputManager {
             left: false,
             right: false
         };
+
+        // NOUVEAU: Pan tactile et pinch zoom
+        this.touchPanning = false;
+        this.lastTouchPos = { x: 0, y: 0 };
+        this.touchPanDelta = { x: 0, y: 0 };
+        this.pinching = false;
+        this.lastPinchDistance = 0;
+        this.zoomLevel = 1.0;
         
         this.initListeners();
     }
@@ -821,9 +830,8 @@ class InputManager {
         document.addEventListener('keydown', (e) => {
             this.keys[e.key.toLowerCase()] = true;
             
-            // NOUVEAU: Gestion de la barre d'espace pour tirer
             if (e.key === ' ') {
-                e.preventDefault(); // Empêcher le scroll de la page
+                e.preventDefault();
                 this.spaceDown = true;
             }
             
@@ -840,7 +848,6 @@ class InputManager {
         document.addEventListener('keyup', (e) => {
             this.keys[e.key.toLowerCase()] = false;
             
-            // NOUVEAU: Relâchement de la barre d'espace
             if (e.key === ' ') {
                 this.spaceDown = false;
             }
@@ -877,7 +884,9 @@ class InputManager {
         const joystick = document.getElementById('joystick');
         const joystickStick = joystick.querySelector('.joystick-stick');
         const fireBtn = document.getElementById('fire-btn');
+        const canvas = document.getElementById('game-canvas');
 
+        // Joystick controls
         const handleJoystickStart = (e) => {
             e.preventDefault();
             this.joystickActive = true;
@@ -921,6 +930,7 @@ class InputManager {
         joystick.addEventListener('touchmove', handleJoystickMove);
         joystick.addEventListener('touchend', handleJoystickEnd);
 
+        // Fire button
         fireBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             this.fireActive = true;
@@ -930,13 +940,73 @@ class InputManager {
             e.preventDefault();
             this.fireActive = false;
         });
+
+        // NOUVEAU: Pan caméra tactile sur canvas
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                // Vérifier si le touch n'est pas dans les zones de contrôle
+                const touch = e.touches[0];
+                const joystickRect = joystick.getBoundingClientRect();
+                const fireRect = fireBtn.getBoundingClientRect();
+                
+                const inJoystick = touch.clientX >= joystickRect.left && touch.clientX <= joystickRect.right &&
+                                   touch.clientY >= joystickRect.top && touch.clientY <= joystickRect.bottom;
+                const inFire = touch.clientX >= fireRect.left && touch.clientX <= fireRect.right &&
+                              touch.clientY >= fireRect.top && touch.clientY <= fireRect.bottom;
+                
+                if (!inJoystick && !inFire) {
+                    this.touchPanning = true;
+                    this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
+                }
+            } else if (e.touches.length === 2) {
+                // Pinch zoom
+                this.pinching = true;
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                this.lastPinchDistance = Math.sqrt(dx * dx + dy * dy);
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            
+            if (this.touchPanning && e.touches.length === 1) {
+                const touch = e.touches[0];
+                this.touchPanDelta = {
+                    x: this.lastTouchPos.x - touch.clientX,
+                    y: this.lastTouchPos.y - touch.clientY
+                };
+                this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
+            } else if (this.pinching && e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const delta = distance - this.lastPinchDistance;
+                
+                this.zoomLevel += delta * 0.01;
+                this.zoomLevel = Math.max(0.5, Math.min(2.0, this.zoomLevel));
+                
+                canvas.style.transform = `scale(${this.zoomLevel})`;
+                
+                this.lastPinchDistance = distance;
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                this.touchPanning = false;
+                this.pinching = false;
+                this.touchPanDelta = { x: 0, y: 0 };
+            } else if (e.touches.length === 1) {
+                this.pinching = false;
+            }
+        });
     }
 
     getInput() {
         const ck = this.controlKeys;
         
         if (isMobile && this.joystickActive) {
-            // MOBILE: Calculer l'angle du joystick pour la direction de tir
             let joyAngle = undefined;
             if (this.joystickPos.x !== 0 || this.joystickPos.y !== 0) {
                 joyAngle = Math.atan2(this.joystickPos.y, this.joystickPos.x);
@@ -950,11 +1020,11 @@ class InputManager {
                 shoot: this.fireActive,
                 mousePos: null,
                 cameraKeys: this.cameraKeys,
-                joyAngle: joyAngle
+                joyAngle: joyAngle,
+                touchPanDelta: this.touchPanDelta
             };
         }
 
-        // DESKTOP: Inclure la barre d'espace comme option de tir
         return {
             up: this.keys[ck.up],
             down: this.keys[ck.down],
@@ -963,7 +1033,8 @@ class InputManager {
             shoot: this.mouseDown || this.spaceDown || this.fireActive,
             mousePos: this.mousePos,
             cameraKeys: this.cameraKeys,
-            joyAngle: undefined
+            joyAngle: undefined,
+            touchPanDelta: this.touchPanDelta
         };
     }
 
@@ -1088,7 +1159,7 @@ class UIManager {
     }
 }
 
-// Game Class
+// Game Class - MODIFIÉ: Spawn 25 robots simultanés, caméra corrigée
 class Game {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -1111,7 +1182,6 @@ class Game {
         
         this.lastTime = 0;
         this.shootCooldown = 0;
-        this.waveIndex = 0;
         this.glitchTimer = 0;
         
         this.gameStartTimer = 0;
@@ -1194,7 +1264,6 @@ class Game {
         this.robots = [];
         this.tvs = [];
         this.camera = { x: 0, y: 0 };
-        this.waveIndex = 0;
         this.scoreManager.tvsDestroyed = 0;
         this.scoreManager.robotsKilled = 0;
         this.explosions = [];
@@ -1330,6 +1399,7 @@ class Game {
         });
     }
 
+    // MODIFIÉ: Spawn 25 robots simultanément
     spawnInitialWave() {
         if (this.initialSpawnDone) return;
         
@@ -1337,36 +1407,22 @@ class Game {
         this.audio.playSound('wave');
         const speed = CONFIG.ROBOT_SPEEDS[this.level - 1];
         
-        const robotTypes = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4];
-        
-        for (let i = 0; i < robotTypes.length; i++) {
-            setTimeout(() => {
-                const pos = this.maze.getRandomFloorPosition();
-                const robot = new Robot(pos.x, pos.y, speed, this.imageLoader);
-                robot.type = robotTypes[i];
-                this.robots.push(robot);
-            }, i * 300);
+        // Distribution égale des 4 types sur 25 robots
+        const robotTypes = [];
+        for (let type = 1; type <= 4; type++) {
+            for (let i = 0; i < 6; i++) {
+                robotTypes.push(type);
+            }
         }
-    }
-
-    spawnWave() {
-        if (this.waveIndex >= CONFIG.WAVES_PER_LEVEL) return;
+        robotTypes.push(Math.floor(Math.random() * 4) + 1); // 25ème robot type aléatoire
         
-        this.audio.playSound('wave');
-        const speed = CONFIG.ROBOT_SPEEDS[this.level - 1];
-        
-        const types = [1, 2, 3, 4];
-        
-        for (let i = 0; i < CONFIG.ROBOTS_PER_WAVE; i++) {
-            setTimeout(() => {
-                const pos = this.maze.getRandomFloorPosition();
-                const robot = new Robot(pos.x, pos.y, speed, this.imageLoader);
-                robot.type = types[i % 4];
-                this.robots.push(robot);
-            }, i * 500);
+        // Spawn tous les robots simultanément
+        for (let i = 0; i < CONFIG.INITIAL_ROBOTS; i++) {
+            const pos = this.maze.getRandomFloorPosition();
+            const robot = new Robot(pos.x, pos.y, speed, this.imageLoader);
+            robot.type = robotTypes[i];
+            this.robots.push(robot);
         }
-        
-        this.waveIndex++;
     }
 
     getActiveTVs() {
@@ -1378,33 +1434,41 @@ class Game {
 
         const input = this.input.getInput();
         
+        // MODIFIÉ: Spawn à 2s sans condition hasMoved
         this.gameStartTimer += dt;
-        if (this.gameStartTimer >= 2 && this.player.hasMoved && !this.initialSpawnDone) {
+        if (this.gameStartTimer >= 2 && !this.initialSpawnDone) {
             this.spawnInitialWave();
         }
         
-        // CORRIGÉ: Passer la caméra au player pour le calcul de l'angle
         this.player.update(dt, input, this.maze, this.camera);
         
-        // NOUVEAU CODE : La caméra suit le joueur avec possibilité de contrôle manuel
+        // MODIFIÉ: Gestion caméra corrigée avec marge bottom augmentée
         const targetCameraX = this.player.pos.x - CONFIG.CANVAS_WIDTH / 2;
         const targetCameraY = this.player.pos.y - CONFIG.CANVAS_HEIGHT / 2;
-
-        // Contrôles manuels optionnels de la caméra
+        
+        // Contrôles manuels caméra (desktop flèches)
         if (input.cameraKeys.left) this.camera.x -= CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.right) this.camera.x += CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.up) this.camera.y -= CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.down) this.camera.y += CONFIG.CAMERA_SPEED * dt;
 
-        // Limites de la caméra
+        // NOUVEAU: Pan tactile mobile
+        if (isMobile && input.touchPanDelta) {
+            this.camera.x += input.touchPanDelta.x;
+            this.camera.y += input.touchPanDelta.y;
+        }
+
+        // CORRIGÉ: Calcul maxCamera avec (height - 2) pour tenir compte de la génération
+        const effectiveHeight = (this.maze.height - 2) * this.maze.tileSize;
         const maxCameraX = Math.max(0, this.maze.width * this.maze.tileSize - CONFIG.CANVAS_WIDTH);
-        const maxCameraY = Math.max(0, this.maze.height * this.maze.tileSize - CONFIG.CANVAS_HEIGHT);
+        const maxCameraY = Math.max(0, effectiveHeight - CONFIG.CANVAS_HEIGHT);
 
         // Forcer la caméra à suivre le joueur s'il sort de l'écran
         const playerScreenX = this.player.pos.x - this.camera.x;
         const playerScreenY = this.player.pos.y - this.camera.y;
 
-        const margin = 100; // Marge avant que la caméra ne soit forcée de suivre
+        const margin = 100;
+        const marginBottom = 250; // AUGMENTÉ pour le bas
 
         if (playerScreenX < margin) {
             this.camera.x = this.player.pos.x - margin;
@@ -1415,14 +1479,14 @@ class Game {
         if (playerScreenY < margin) {
             this.camera.y = this.player.pos.y - margin;
         }
-        if (playerScreenY > CONFIG.CANVAS_HEIGHT - margin) {
-            this.camera.y = this.player.pos.y - CONFIG.CANVAS_HEIGHT + margin;
+        if (playerScreenY > CONFIG.CANVAS_HEIGHT - marginBottom) {
+            this.camera.y = this.player.pos.y - CONFIG.CANVAS_HEIGHT + marginBottom;
         }
 
         // Appliquer les limites finales
         this.camera.x = Math.max(0, Math.min(maxCameraX, this.camera.x));
         this.camera.y = Math.max(0, Math.min(maxCameraY, this.camera.y));
-
+        
         if (input.shoot && this.shootCooldown <= 0) {
             this.bullets.push(new Bullet(this.player.pos.x, this.player.pos.y, this.player.angle));
             this.audio.playSound('shoot');
@@ -1470,7 +1534,7 @@ class Game {
         });
         
         this.tvs.forEach(tv => {
-            if (tv.update(dt, this.player.pos, !this.player.moving)) {
+            if (tv.update(dt, this.player.pos, this.player.moving)) {
                 this.audio.playSound('tv_off');
                 this.particles.emit(tv.pos.x, tv.pos.y, 10, 'rgb(0, 255, 0)');
                 this.scoreManager.addTVDestroyed();
@@ -1544,7 +1608,7 @@ document.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
 
-// Shake animation
+// Animations CSS
 const style = document.createElement('style');
 style.textContent = `
     @keyframes shake {

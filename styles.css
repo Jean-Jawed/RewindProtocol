@@ -178,10 +178,12 @@ body {
 }
 
 .subtitle {
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: var(--neon-pink);
     margin-bottom: 50px;
     text-shadow: 0 0 10px var(--neon-pink);
+    text-align: center;
+    line-height: 1.6;
 }
 
 /* Menu */
@@ -465,7 +467,7 @@ body {
     }
     
     .subtitle {
-        font-size: 1rem;
+        font-size: 0.85rem;
     }
     
     .menu-btn {

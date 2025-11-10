@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Rewind Protocol - Game</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="game.css">
@@ -13,7 +13,7 @@
     
     <!-- Tutorial Message -->
     <div id="tutorial" class="tutorial">
-        Restez immobile devant les TVs pour les éteindre
+        Move in front of the TVs to turn them off
     </div>
 
     <!-- HUD -->
@@ -28,8 +28,10 @@
         </div>
     </div>
 
-    <!-- Canvas -->
-    <canvas id="game-canvas"></canvas>
+    <!-- Canvas Container -->
+    <div id="canvas-container" class="canvas-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
 
     <!-- Mobile Controls -->
     <div id="mobile-controls" class="mobile-controls hidden">

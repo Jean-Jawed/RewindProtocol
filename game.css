@@ -398,6 +398,7 @@
 
 /* Responsive Game */
 @media (max-width: 768px) {
+    /* 1. Remplacement des valeurs HUD existantes par une réduction de ~50% de la version DESKTOP */
     .hud {
         top: 10px;
         left: 10px;
@@ -405,10 +406,41 @@
     }
     
     .hud-item {
-        padding: 8px 15px;
-        font-size: 0.9rem;
+        /* Version desktop: padding: 10px 20px; font-size: 1.1rem; */
+        /* Réduction de ~50%: padding: 5px 10px; font-size: 0.55rem; */
+        padding: 5px 10px;
+        font-size: 0.55rem; /* ~0.6rem est plus lisible si 0.55rem est trop petit */
+    }
+
+    /* Optionnel: réduire l'espacement entre les éléments HUD */
+    .hud-left, .hud-right {
+        gap: 5px; /* Réduction de moitié de 10px à 5px */
+    }
+
+    /* 2. Joystick: Réduction de 50% des unités vw/vh */
+    .joystick {
+        /* Version desktop: width: 15vw; height: 15vw; left: 5vw; bottom: 5vh; */
+        /* Réduction de 50%: width: 7.5vw; height: 7.5vw; left: 2.5vw; bottom: 2.5vh; */
+        left: 2.5vw;
+        bottom: 2.5vh;
+        width: 7.5vw;
+        height: 7.5vw;
+        /* Les min/max width/height ne sont pas modifiés pour garantir une taille minimale/maximale */
     }
     
+    /* 3. Bouton Fire: Réduction de 50% des unités vw/vh et de la taille de police */
+    .fire-btn {
+        /* Version desktop: width: 12vw; height: 12vw; right: 5vw; bottom: 5vh; font-size: 2rem; */
+        /* Réduction de 50%: width: 6vw; height: 6vw; right: 2.5vw; bottom: 2.5vh; font-size: 1rem; */
+        right: 2.5vw;
+        bottom: 2.5vh;
+        width: 6vw;
+        height: 6vw;
+        font-size: 1rem;
+        /* Les min/max width/height ne sont pas modifiés pour garantir une taille minimale/maximale */
+    }
+    
+    /* Les autres éléments (Game Over/Victory/Stats) sont conservés/modifiés comme avant, car ce n'étaient pas des "contrôleurs" */
     .game-over-content h2,
     .victory-content h2,
     .complete-content h2 {

@@ -3,21 +3,21 @@ const CONFIG = {
     CANVAS_WIDTH: 1280,
     CANVAS_HEIGHT: 720,
     TILE_SIZE: 40,
-    PLAYER_SIZE: 45, // Augmenté de 30 à 45 (1.5x)
-    ROBOT_SIZE: 42, // Augmenté de 28 à 42 (1.5x)
+    PLAYER_SIZE: 45,
+    ROBOT_SIZE: 42,
     TV_SIZE: 35,
     BULLET_SIZE: 8,
     PLAYER_SPEED: 200,
     BULLET_SPEED: 400,
     MAX_LIVES: 5,
     TVS_PER_LEVEL: 7,
-    ROBOTS_PER_WAVE: 6, // Augmenté de 4 à 6
+    ROBOTS_PER_WAVE: 6,
     WAVES_PER_LEVEL: 5,
     TV_DISABLE_TIME: 500,
     ROBOT_SPEEDS: [80, 120, 160],
     ROBOT_DETECTION_RANGE: 250,
     PARTICLE_COUNT: 15,
-    CAMERA_SPEED: 400 // Nouvelle config pour la caméra
+    CAMERA_SPEED: 400
 };
 
 // Utility Functions
@@ -206,7 +206,7 @@ class Explosion {
     }
 }
 
-// Maze Generator - MODIFIÉ POUR CHEMINS DE LARGEUR 2
+// Maze Generator
 class Maze {
     constructor(width, height, tileSize) {
         this.width = Math.floor(width / tileSize);
@@ -217,7 +217,6 @@ class Maze {
     }
 
     generate() {
-        // Initialize grid with walls
         for (let y = 0; y < this.height; y++) {
             this.grid[y] = [];
             for (let x = 0; x < this.width; x++) {
@@ -225,12 +224,10 @@ class Maze {
             }
         }
 
-        // Génération avec chemins de largeur 2
         const stack = [];
         const startX = 2;
         const startY = 2;
         
-        // Créer un bloc 2x2 de départ
         this.grid[startY][startX] = 0;
         this.grid[startY][startX + 1] = 0;
         this.grid[startY + 1][startX] = 0;
@@ -238,12 +235,11 @@ class Maze {
         
         stack.push([startX, startY]);
 
-        // Directions avec pas de 3 pour créer des chemins de largeur 2
         const directions = [
-            [0, -3], // Haut
-            [3, 0],  // Droite
-            [0, 3],  // Bas
-            [-3, 0]  // Gauche
+            [0, -3],
+            [3, 0],
+            [0, 3],
+            [-3, 0]
         ];
 
         while (stack.length > 0) {
@@ -262,15 +258,14 @@ class Maze {
             if (neighbors.length > 0) {
                 const [nx, ny, dx, dy] = neighbors[Math.floor(Math.random() * neighbors.length)];
                 
-                // Créer un chemin de largeur 2 vers la nouvelle position
-                if (dx !== 0) { // Mouvement horizontal
+                if (dx !== 0) {
                     const step = dx > 0 ? 1 : -1;
                     for (let i = 0; i <= Math.abs(dx); i++) {
                         const cx = x + i * step;
                         this.grid[y][cx] = 0;
                         this.grid[y + 1][cx] = 0;
                     }
-                } else { // Mouvement vertical
+                } else {
                     const step = dy > 0 ? 1 : -1;
                     for (let i = 0; i <= Math.abs(dy); i++) {
                         const cy = y + i * step;
@@ -279,7 +274,6 @@ class Maze {
                     }
                 }
                 
-                // Créer un bloc 2x2 à la destination
                 this.grid[ny][nx] = 0;
                 this.grid[ny][nx + 1] = 0;
                 this.grid[ny + 1][nx] = 0;
@@ -291,7 +285,6 @@ class Maze {
             }
         }
 
-        // Ajouter quelques ouvertures supplémentaires pour plus de connexions
         for (let i = 0; i < 30; i++) {
             const x = Math.floor(Math.random() * (this.width - 3)) + 2;
             const y = Math.floor(Math.random() * (this.height - 3)) + 2;
@@ -315,7 +308,6 @@ class Maze {
             const x = Math.floor(Math.random() * (this.width - 4)) + 2;
             const y = Math.floor(Math.random() * (this.height - 4)) + 2;
             
-            // Vérifier qu'il y a un espace 2x2 libre
             if (this.grid[y][x] === 0 && this.grid[y][x + 1] === 0 && 
                 this.grid[y + 1][x] === 0 && this.grid[y + 1][x + 1] === 0) {
                 return new Vector2D(
@@ -325,7 +317,6 @@ class Maze {
             }
             attempts++;
         }
-        // Fallback
         return new Vector2D(this.tileSize * 3, this.tileSize * 3);
     }
 
@@ -553,10 +544,10 @@ class Player {
         this.moving = false;
         this.imageLoader = imageLoader;
         this.facingRight = true;
-        this.hasMoved = false; // NOUVEAU: tracker si le joueur a bougé
+        this.hasMoved = false;
     }
 
-    update(dt, input, maze) {
+    update(dt, input, maze, camera) {
         this.moving = false;
         this.vel = new Vector2D(0, 0);
 
@@ -574,7 +565,7 @@ class Player {
         }
 
         if (this.moving) {
-            this.hasMoved = true; // NOUVEAU: marquer que le joueur a bougé
+            this.hasMoved = true;
         }
 
         if (this.vel.length() > 0) {
@@ -591,10 +582,21 @@ class Player {
             this.pos.y = newPos.y;
         }
 
-        if (input.mousePos) {
-            const dx = input.mousePos.x - CONFIG.CANVAS_WIDTH / 2;
-            const dy = input.mousePos.y - CONFIG.CANVAS_HEIGHT / 2;
+        // CORRIGÉ: Calcul de l'angle en prenant en compte la position de la caméra ET du joueur
+        if (input.mousePos && !isMobile) {
+            // Position de la souris dans le monde (en ajoutant la position de la caméra)
+            const worldMouseX = input.mousePos.x + camera.x;
+            const worldMouseY = input.mousePos.y + camera.y;
+            
+            // Calculer l'angle entre le joueur et la souris
+            const dx = worldMouseX - this.pos.x;
+            const dy = worldMouseY - this.pos.y;
             this.angle = Math.atan2(dy, dx);
+        } else if (isMobile) {
+            // Sur mobile, l'angle est basé sur la direction du joystick
+            if (input.joyAngle !== undefined) {
+                this.angle = input.joyAngle;
+            }
         }
 
         if (this.invulnerable) {
@@ -798,13 +800,13 @@ class InputManager {
         this.keys = {};
         this.mousePos = null;
         this.mouseDown = false;
+        this.spaceDown = false; // NOUVEAU: Touche espace
         this.controlScheme = controlScheme;
         this.controlKeys = getControlKeys(controlScheme);
         this.joystickActive = false;
         this.joystickPos = { x: 0, y: 0 };
         this.fireActive = false;
         
-        // NOUVEAU: Contrôles caméra
         this.cameraKeys = {
             up: false,
             down: false,
@@ -819,7 +821,12 @@ class InputManager {
         document.addEventListener('keydown', (e) => {
             this.keys[e.key.toLowerCase()] = true;
             
-            // NOUVEAU: Contrôles caméra avec les flèches
+            // NOUVEAU: Gestion de la barre d'espace pour tirer
+            if (e.key === ' ') {
+                e.preventDefault(); // Empêcher le scroll de la page
+                this.spaceDown = true;
+            }
+            
             if (e.key === 'ArrowUp') this.cameraKeys.up = true;
             if (e.key === 'ArrowDown') this.cameraKeys.down = true;
             if (e.key === 'ArrowLeft') this.cameraKeys.left = true;
@@ -833,7 +840,11 @@ class InputManager {
         document.addEventListener('keyup', (e) => {
             this.keys[e.key.toLowerCase()] = false;
             
-            // NOUVEAU: Contrôles caméra
+            // NOUVEAU: Relâchement de la barre d'espace
+            if (e.key === ' ') {
+                this.spaceDown = false;
+            }
+            
             if (e.key === 'ArrowUp') this.cameraKeys.up = false;
             if (e.key === 'ArrowDown') this.cameraKeys.down = false;
             if (e.key === 'ArrowLeft') this.cameraKeys.left = false;
@@ -925,25 +936,34 @@ class InputManager {
         const ck = this.controlKeys;
         
         if (isMobile && this.joystickActive) {
+            // MOBILE: Calculer l'angle du joystick pour la direction de tir
+            let joyAngle = undefined;
+            if (this.joystickPos.x !== 0 || this.joystickPos.y !== 0) {
+                joyAngle = Math.atan2(this.joystickPos.y, this.joystickPos.x);
+            }
+            
             return {
                 up: this.joystickPos.y < -0.3,
                 down: this.joystickPos.y > 0.3,
                 left: this.joystickPos.x < -0.3,
                 right: this.joystickPos.x > 0.3,
                 shoot: this.fireActive,
-                mousePos: this.mousePos,
-                cameraKeys: this.cameraKeys
+                mousePos: null,
+                cameraKeys: this.cameraKeys,
+                joyAngle: joyAngle
             };
         }
 
+        // DESKTOP: Inclure la barre d'espace comme option de tir
         return {
             up: this.keys[ck.up],
             down: this.keys[ck.down],
             left: this.keys[ck.left],
             right: this.keys[ck.right],
-            shoot: this.mouseDown || this.fireActive,
+            shoot: this.mouseDown || this.spaceDown || this.fireActive,
             mousePos: this.mousePos,
-            cameraKeys: this.cameraKeys
+            cameraKeys: this.cameraKeys,
+            joyAngle: undefined
         };
     }
 
@@ -1094,7 +1114,6 @@ class Game {
         this.waveIndex = 0;
         this.glitchTimer = 0;
         
-        // NOUVEAU: Timer pour le spawn initial
         this.gameStartTimer = 0;
         this.initialSpawnDone = false;
         
@@ -1180,7 +1199,6 @@ class Game {
         this.scoreManager.robotsKilled = 0;
         this.explosions = [];
         
-        // NOUVEAU: Reset du timer de spawn
         this.gameStartTimer = 0;
         this.initialSpawnDone = false;
         
@@ -1312,7 +1330,6 @@ class Game {
         });
     }
 
-    // NOUVEAU: Spawn initial massif
     spawnInitialWave() {
         if (this.initialSpawnDone) return;
         
@@ -1320,7 +1337,6 @@ class Game {
         this.audio.playSound('wave');
         const speed = CONFIG.ROBOT_SPEEDS[this.level - 1];
         
-        // Spawn 12 robots de types variés (3 de chaque type)
         const robotTypes = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4];
         
         for (let i = 0; i < robotTypes.length; i++) {
@@ -1339,7 +1355,6 @@ class Game {
         this.audio.playSound('wave');
         const speed = CONFIG.ROBOT_SPEEDS[this.level - 1];
         
-        // Spawn avec types variés
         const types = [1, 2, 3, 4];
         
         for (let i = 0; i < CONFIG.ROBOTS_PER_WAVE; i++) {
@@ -1363,32 +1378,51 @@ class Game {
 
         const input = this.input.getInput();
         
-        // NOUVEAU: Gestion du timer de spawn initial
         this.gameStartTimer += dt;
         if (this.gameStartTimer >= 2 && this.player.hasMoved && !this.initialSpawnDone) {
             this.spawnInitialWave();
         }
         
-        // Update player
-        this.player.update(dt, input, this.maze);
+        // CORRIGÉ: Passer la caméra au player pour le calcul de l'angle
+        this.player.update(dt, input, this.maze, this.camera);
         
-        // NOUVEAU: Update camera avec contrôles manuels
+        // NOUVEAU CODE : La caméra suit le joueur avec possibilité de contrôle manuel
         const targetCameraX = this.player.pos.x - CONFIG.CANVAS_WIDTH / 2;
         const targetCameraY = this.player.pos.y - CONFIG.CANVAS_HEIGHT / 2;
-        
-        // Permettre le déplacement manuel de la caméra avec les flèches
+
+        // Contrôles manuels optionnels de la caméra
         if (input.cameraKeys.left) this.camera.x -= CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.right) this.camera.x += CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.up) this.camera.y -= CONFIG.CAMERA_SPEED * dt;
         if (input.cameraKeys.down) this.camera.y += CONFIG.CAMERA_SPEED * dt;
-        
-        // Limiter la caméra aux bords du labyrinthe
-        const maxCameraX = this.maze.width * this.maze.tileSize - CONFIG.CANVAS_WIDTH;
-        const maxCameraY = this.maze.height * this.maze.tileSize - CONFIG.CANVAS_HEIGHT;
+
+        // Limites de la caméra
+        const maxCameraX = Math.max(0, this.maze.width * this.maze.tileSize - CONFIG.CANVAS_WIDTH);
+        const maxCameraY = Math.max(0, this.maze.height * this.maze.tileSize - CONFIG.CANVAS_HEIGHT);
+
+        // Forcer la caméra à suivre le joueur s'il sort de l'écran
+        const playerScreenX = this.player.pos.x - this.camera.x;
+        const playerScreenY = this.player.pos.y - this.camera.y;
+
+        const margin = 100; // Marge avant que la caméra ne soit forcée de suivre
+
+        if (playerScreenX < margin) {
+            this.camera.x = this.player.pos.x - margin;
+        }
+        if (playerScreenX > CONFIG.CANVAS_WIDTH - margin) {
+            this.camera.x = this.player.pos.x - CONFIG.CANVAS_WIDTH + margin;
+        }
+        if (playerScreenY < margin) {
+            this.camera.y = this.player.pos.y - margin;
+        }
+        if (playerScreenY > CONFIG.CANVAS_HEIGHT - margin) {
+            this.camera.y = this.player.pos.y - CONFIG.CANVAS_HEIGHT + margin;
+        }
+
+        // Appliquer les limites finales
         this.camera.x = Math.max(0, Math.min(maxCameraX, this.camera.x));
         this.camera.y = Math.max(0, Math.min(maxCameraY, this.camera.y));
-        
-        // Update bullets
+
         if (input.shoot && this.shootCooldown <= 0) {
             this.bullets.push(new Bullet(this.player.pos.x, this.player.pos.y, this.player.angle));
             this.audio.playSound('shoot');
@@ -1399,10 +1433,8 @@ class Game {
         this.bullets.forEach(bullet => bullet.update(dt, this.maze));
         this.bullets = this.bullets.filter(b => !b.dead);
         
-        // Update robots
         this.robots.forEach(robot => robot.update(dt, this.player.pos, this.maze));
         
-        // Bullet-Robot collision
         this.bullets.forEach(bullet => {
             this.robots.forEach(robot => {
                 if (!bullet.dead && !robot.dead && bullet.collidesWith(robot)) {
@@ -1418,7 +1450,6 @@ class Game {
         });
         this.robots = this.robots.filter(r => !r.dead);
         
-        // Robot-Player collision
         this.robots.forEach(robot => {
             if (robot.collidesWith(this.player)) {
                 if (this.player.takeDamage()) {
@@ -1438,7 +1469,6 @@ class Game {
             }
         });
         
-        // Update TVs
         this.tvs.forEach(tv => {
             if (tv.update(dt, this.player.pos, !this.player.moving)) {
                 this.audio.playSound('tv_off');
@@ -1448,21 +1478,17 @@ class Game {
             }
         });
         
-        // Check level complete
         if (this.getActiveTVs() === 0 && this.state === 'playing') {
             this.state = 'levelComplete';
             this.ui.showLevelComplete(this.scoreManager.robotsKilled, CONFIG.TVS_PER_LEVEL, this.scoreManager.score);
             this.audio.playSound('victory');
         }
         
-        // Update particles
         this.particles.update(dt);
         
-        // Update explosions
         this.explosions.forEach(exp => exp.update(dt));
         this.explosions = this.explosions.filter(exp => !exp.dead);
         
-        // Random glitch effect
         this.glitchTimer += dt;
         if (this.glitchTimer > 100 && Math.random() < 0.01) {
             this.glitchTimer = 0;
